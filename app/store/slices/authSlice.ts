@@ -1,0 +1,88 @@
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setUserData } from './userSlice';
+
+interface AuthState {
+  isAuthenticated: boolean;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const initialState: AuthState = {
+  isAuthenticated: false,
+  token: null,
+  isLoading: false,
+  error: null,
+};
+
+const authSlice = createSlice({
+  name: 'auth',
+  initialState,
+  reducers: {
+    loginStart: (state) => {
+      state.isLoading = true;
+      state.error = null;
+    },
+    loginSuccess: (state, action: PayloadAction<string>) => {
+      state.isLoading = false;
+      state.isAuthenticated = true;
+      state.token = action.payload;
+      state.error = null;
+    },
+    loginFailure: (state, action: PayloadAction<string>) => {
+      state.isLoading = false;
+      state.error = action.payload;
+    },
+    logout: (state) => {
+      state.isAuthenticated = false;
+      state.token = null;
+      state.error = null;
+    },
+  },
+});
+
+export const { loginStart, loginSuccess, loginFailure, logout } = authSlice.actions;
+
+export const login = (username: string, password: string) => async (dispatch: any) => {
+  try {
+    dispatch(loginStart());
+    
+    const response = await fetch('http://192.168.0.88:5276/api/Auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        kullaniciAdi: username,
+        sifre: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      await AsyncStorage.setItem('userToken', data.token.accessToken);
+      await AsyncStorage.setItem('userData', JSON.stringify(data.userData));
+      dispatch(loginSuccess(data.token.accessToken));
+      dispatch(setUserData(data.userData));
+    } else {
+      dispatch(loginFailure(data.message || 'Giriş başarısız'));
+    }
+  } catch (error) {
+    dispatch(loginFailure('Sunucuya bağlanılamadı'));
+  }
+};
+
+export const logoutUser = () => async (dispatch: any) => {
+  try {
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userData');
+    dispatch(logout());
+    dispatch({ type: 'user/clearUserData' });
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+};
+
+export default authSlice.reducer; 
