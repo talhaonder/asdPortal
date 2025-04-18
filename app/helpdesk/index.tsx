@@ -57,6 +57,7 @@ export default function HelpdeskScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [listEndReached, setListEndReached] = useState(false);
 
   // Fetch tickets initially
   useEffect(() => {
@@ -204,12 +205,26 @@ export default function HelpdeskScreen() {
 
   // Handle loading more items when scrolling to bottom
   const handleLoadMore = async () => {
-    if (!isLoadingMore && !refreshing && !loading) {
-      console.log('Loading more tickets...');
-      setIsLoadingMore(true);
-      await fetchTickets();
+    // If we've already reached the end of the list or loading is in progress, do nothing
+    if (listEndReached || isLoadingMore || refreshing || loading || filteredTickets.length === 0) {
+      return;
     }
+    
+    console.log('Loading more tickets...');
+    setIsLoadingMore(true);
+    
+    // Mark that we've reached the end of the list to prevent further loading attempts
+    setListEndReached(true);
+    
+    setTimeout(() => {
+      setIsLoadingMore(false);
+    }, 500);
   };
+
+  // Reset list end reached state when changing tabs
+  useEffect(() => {
+    setListEndReached(false);
+  }, [activeTab]);
 
   return (
     <View style={styles.container}>
@@ -337,7 +352,7 @@ export default function HelpdeskScreen() {
             refreshing={refreshing}
             onRefresh={handleRefresh}
             onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
+            onEndReachedThreshold={0.01}
             ListFooterComponent={isLoadingMore ? (
               <View style={styles.loadMoreIndicator}>
                 <ActivityIndicator size="small" color="#007AFF" />

@@ -96,7 +96,6 @@ const AnimatedTabs: React.FC<AnimatedTabsProps> = ({ data, onChange, selectedInd
           </TouchableOpacity>
         ))}
       </View>
-      <Animated.View style={[styles.indicator, indicatorStyle]} />
     </View>
   );
 };
@@ -124,14 +123,8 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#1981ef',
+    fontWeight: 'bold',
   },
-  indicator: {
-    height: 3,
-    backgroundColor: '#1981ef',
-    position: 'absolute',
-    bottom: 0,
-    borderRadius: 3,
-  }
 });
 
 export default React.memo(AnimatedTabs); 

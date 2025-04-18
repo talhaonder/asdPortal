@@ -202,29 +202,9 @@ export default function TicketDetailScreen() {
 
   // Handle file opening based on file type
   const openFile = async (file: any) => {
-    console.log(`Attempting to open file: ${file.dosyaAdi} (ID: ${file.id})`, file);
-    
-    try {
-      // For image files, open directly with URL if dosyaYolu exists
-      const isImageFile = file.icerikTipi?.startsWith('image/') || 
-                         ['.jpg', '.jpeg', '.png', '.gif', '.webp'].some(ext => 
-                            file.dosyaUzantisi?.toLowerCase().endsWith(ext));
-      
-      if (isImageFile) {
-        console.log('Opening image file:', file.dosyaAdi);
-        // Use the direct endpoint to get the file - dosyaYolu is just a relative path
-        const imageUrl = `${BASE_URL}/DosyaYonetimi/indir/${file.id}`;
-        console.log("Opening image URL:", imageUrl);
-        await WebBrowser.openBrowserAsync(imageUrl);
-      } else {
-        console.log('Opening non-image file:', file.dosyaAdi);
-        // For non-image files, we'll just download them
-        await downloadFile(file);
-      }
-    } catch (error: any) {
-      console.error("Dosya açılırken hata oluştu:", error);
-      alert("Dosya açılırken bir hata oluştu: " + error.message);
-    }
+    console.log(`File selected: ${file.dosyaAdi} (ID: ${file.id})`, file);
+    // File preview functionality removed as requested
+    alert("Dosya önizleme özelliği kaldırılmıştır.");
   };
 
   // Function to download a file (different from view/open)
@@ -340,16 +320,9 @@ export default function TicketDetailScreen() {
                 </View>
               ) : ticketFiles.length > 0 ? (
                 ticketFiles.map((file) => {
-                  const isImageFile = file.icerikTipi?.startsWith('image/') || 
-                                    ['.jpg', '.jpeg', '.png', '.gif', '.webp'].some(ext => 
-                                       file.dosyaUzantisi?.toLowerCase().endsWith(ext));
-                  
                   return (
                     <View key={file.id} style={styles.fileItem}>
-                      <TouchableOpacity 
-                        style={styles.fileInfoContainer}
-                        onPress={() => openFile(file)}
-                      >
+                      <View style={styles.fileInfoContainer}>
                         <Ionicons
                           name={getFileIconName(file)}
                           size={24}
@@ -359,34 +332,20 @@ export default function TicketDetailScreen() {
                         <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
                           {file.dosyaAdi || `Dosya ${file.id}`}
                         </Text>
-                      </TouchableOpacity>
+                      </View>
                       
                       <View style={styles.fileActions}>
-                        {isImageFile ? (
-                          <TouchableOpacity 
-                            onPress={() => openFile(file)} 
-                            style={styles.fileActionButton}
-                            disabled={isDownloading}
-                          >
-                            <Ionicons 
-                              name="eye-outline" 
-                              size={22} 
-                              color={isDownloading ? "#cccccc" : "#007AFF"} 
-                            />
-                          </TouchableOpacity>
-                        ) : (
-                          <TouchableOpacity 
-                            onPress={() => downloadFile(file)} 
-                            style={styles.fileActionButton}
-                            disabled={isDownloading}
-                          >
-                            <Ionicons 
-                              name="download-outline" 
-                              size={22} 
-                              color={isDownloading ? "#cccccc" : "#007AFF"} 
-                            />
-                          </TouchableOpacity>
-                        )}
+                        <TouchableOpacity 
+                          onPress={() => downloadFile(file)} 
+                          style={styles.fileActionButton}
+                          disabled={isDownloading}
+                        >
+                          <Ionicons 
+                            name="download-outline" 
+                            size={22} 
+                            color={isDownloading ? "#cccccc" : "#007AFF"} 
+                          />
+                        </TouchableOpacity>
                       </View>
                     </View>
                   );
