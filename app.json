@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ASD Portal",
-    "slug": "ASD Portal",
+    "slug": "asdPortal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,23 +12,25 @@
       "supportsTablet": true
     },
     "android": {
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "usesCleartextTraffic": true,
+      "package": "com.talhaonder.asdPortal",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.talhaonder.asdPortalDemo"
+      }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
