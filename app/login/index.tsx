@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,163 +12,606 @@ import {
   ActivityIndicator,
   Animated,
   StatusBar,
+  ScrollView,
+  Keyboard,
+  Modal,
+  Alert,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
-import { login } from '../store/slices/authSlice';
+import { login, loginSuccess } from '../store/slices/authSlice';
 import { RootState } from '../store';
 import { store } from '../store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import apiService from '../utils/apiService';
+import PinService from '../utils/pinService';
+
+// Import components
+import {
+  LoginForm,
+  ForgotPasswordModal,
+  LogoHeader,
+  AppFooter,
+  PinVerificationModal,
+  PinCreationModal
+} from './components';
+
+// Key for PIN enabled status in AsyncStorage
+const PIN_ENABLED_KEY = 'pinLoginEnabled';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Need to move this declaration outside the component to avoid TS errors
+let periodicCheckInterval: NodeJS.Timeout | null = null;
+
 export default function Login() {
+  // Add an interval ref to track and clear the PIN check interval
+  const pinCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const router = useRouter();
   const dispatch = useDispatch();
-  const { isLoading, error } = useSelector((state: RootState) => state.auth);
-  const authState = useSelector((state: RootState) => state.auth);
+  const { isLoading, error, savedCredentials } = useSelector((state: RootState) => state.auth);
+  
+  // Form state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const fadeAnim = useState(new Animated.Value(0))[0];
-  const slideAnim = useState(new Animated.Value(50))[0];
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  // PIN state
+  const [pinCreationVisible, setPinCreationVisible] = useState(false);
+  const [pinVerificationVisible, setPinVerificationVisible] = useState(false);
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [verificationPin, setVerificationPin] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [savedUsername, setSavedUsername] = useState('');
+  
+  // Forgot password state
+  const [forgotPasswordVisible, setForgotPasswordVisible] = useState(false);
+  const [email, setEmail] = useState('');
+  const [isResetLoading, setIsResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
+  
+  // Keyboard state
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const logoScale = useRef(new Animated.Value(1)).current;
+  const inputsSlideAnim = useRef(new Animated.Value(30)).current;
+  const buttonFadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Prevent going back from login page
   useEffect(() => {
-    Animated.parallel([
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Prevent going back
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, []);
+
+  // Track keyboard visibility
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+        Animated.timing(logoScale, {
+          toValue: 0.8,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+        Animated.timing(logoScale, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
+  // Initial animations
+  useEffect(() => {
+    // Sequence of animations for a smoother experience
+    Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
         duration: 800,
         useNativeDriver: true,
-      })
+      }),
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(inputsSlideAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonFadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        })
+      ])
     ]).start();
+
+    // Check for saved credentials
+    loadSavedCredentials();
+    
+    // Check for PIN-based login
+    checkPinProtection();
   }, []);
+  
+  // When component mounts - track PIN flow
+  useEffect(() => {
+    console.log('LOGIN COMPONENT: Component mounted, checking initial state');
+    console.log('LOGIN COMPONENT: Auth state:', { 
+      isAuthenticated: store.getState().auth.isAuthenticated,
+      hasSavedCredentials: !!(savedCredentials?.username && savedCredentials?.password)
+    });
+    
+    // Check for PIN verification needs on mount
+    checkPinProtection();
+    
+    // Add debug for modal visibility state
+    console.log('LOGIN COMPONENT: Initial modal visibility:', {
+      isPinCreationVisible: pinCreationVisible,
+      isPinVerificationVisible: pinVerificationVisible
+    });
+    
+    // When component mounts, make sure the PIN modals don't get auto-closed
+    if (periodicCheckInterval) {
+      clearInterval(periodicCheckInterval);
+    }
+    
+    periodicCheckInterval = setInterval(() => {
+      // Only check if PIN verification isn't already showing
+      if (!pinVerificationVisible && !pinCreationVisible) {
+        checkPinProtection();
+      }
+      
+      // Log visibility periodically for debugging
+      console.log('LOGIN COMPONENT: Periodic modal check:', {
+        isPinCreationVisible: pinCreationVisible,
+        isPinVerificationVisible: pinVerificationVisible,
+        timestamp: new Date().toISOString()
+      });
+    }, 2000); // Changed to 2 seconds to reduce log spam
+    
+    return () => {
+      // Clean up the interval when the component unmounts
+      clearPeriodicChecks();
+    };
+  }, []);
+
+  // Check for PIN-protected login
+  const checkPinProtection = async () => {
+    try {
+      console.log('LOGIN COMPONENT: Checking for PIN protection...');
+      
+      const isPinEnabled = await PinService.isPinLoginEnabled();
+      
+      console.log('LOGIN COMPONENT: PIN check results:', {
+        isPinEnabled,
+        hasSavedCredentials: !!(savedCredentials?.username && savedCredentials?.password),
+        isAuthenticated: store.getState().auth.isAuthenticated
+      });
+      
+      if (isPinEnabled) {
+        console.log('LOGIN COMPONENT: PIN protection active, showing verification modal');
+        const savedUsername = await PinService.getSavedUsername();
+        setSavedUsername(savedUsername || '');
+        setPinVerificationVisible(true);
+      } else {
+        console.log('LOGIN COMPONENT: No PIN protection or missing PIN');
+      }
+    } catch (error) {
+      console.error('LOGIN COMPONENT: Error checking PIN protection:', error);
+    }
+  };
+
+  const loadSavedCredentials = async () => {
+    try {
+      const { username: savedUsername, rememberMe: savedRememberMe } = await PinService.loadSavedCredentials();
+      
+      if (savedUsername && savedRememberMe) {
+        setUsername(savedUsername);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error('Error loading saved credentials:', error);
+    }
+  };
+
+  const saveCredentials = async () => {
+    try {
+      await PinService.saveRememberMe(username, rememberMe);
+    } catch (error) {
+      console.error('Error saving credentials:', error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!username || !password) {
       return;
     }
+    
+    Keyboard.dismiss();
+    
     try {
+      // Clear any previous PIN data when logging in normally
+      console.log('Normal login, clearing previous PIN data');
+      await PinService.clearPinData();
       
-      const result = await dispatch(login(username, password) as any);
-      console.log('giris basarili:', result);
+      // Save "Remember Me" preference
+      await saveCredentials();
       
-      const latestState = store.getState().auth;
-      console.log('bilgiler:', {
-        isAuthenticated: latestState.isAuthenticated,
-        token: latestState.token
-      });
+      // Attempt login
+      await dispatch(login(username, password) as any);
+      console.log('Login successful');
       
-      const storedToken = await AsyncStorage.getItem('userToken');
-      console.log('token:', storedToken);
+      // Store credentials for PIN login
+      if (rememberMe) {
+        await PinService.saveCredentials(username, password);
+        console.log('Credentials stored for PIN login');
+      }
       
-      const storedUserData = await AsyncStorage.getItem('userData');
-      console.log('kullanicibilgileri:', storedUserData);
+      // Success animation
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 0.5,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        })
+      ]).start();
       
-      try {
-        if (storedUserData) {
-          const userData = JSON.parse(storedUserData);
-          console.log('kullanicibilgiler:', userData);
-        }
-      } catch (parseError) {
-        console.error('error parse:', parseError);
+      // Show PIN creation modal if remember me is checked
+      if (rememberMe) {
+        console.log('Showing PIN creation modal after successful login');
+        setPinCreationVisible(true);
+      } else {
+        // Navigate directly to portal if remember me is not checked
+        console.log('Navigating to portal (no PIN creation)');
+        PinService.navigateToPortal(router);
       }
     } catch (error) {
       console.error('Login error:', error);
+      // Error shake animation
+      Animated.sequence([
+        Animated.timing(slideAnim, {
+          toValue: -10,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 10,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: -10,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 100,
+          useNativeDriver: true,
+        })
+      ]).start();
     }
   };
+  
+  const handleCreatePin = async () => {
+    // Validate PIN
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      setPinError('PIN must be exactly 4 digits');
+      return;
+    }
+    
+    // Validate PIN confirmation
+    if (pin !== confirmPin) {
+      setPinError('PINs do not match');
+      return;
+    }
+    
+    setPinLoading(true);
+    
+    try {
+      console.log('Creating and saving PIN for quick login...');
+      
+      // Save PIN
+      const success = await PinService.savePin(pin);
+      
+      if (success) {
+        console.log('PIN created and enabled successfully');
+        
+        // Update state
+        setPinCreationVisible(false);
+        setPin('');
+        setConfirmPin('');
+        
+        // Navigate to portal
+        PinService.navigateToPortal(router);
+      } else {
+        setPinError('Failed to save PIN');
+      }
+    } catch (error) {
+      console.error('Error saving PIN:', error);
+      setPinError('An error occurred while saving PIN');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+  
+  const handleVerifyPin = async () => {
+    if (verificationPin.length !== 4) {
+      setPinError('PIN must be 4 digits');
+      return;
+    }
+
+    setPinLoading(true);
+    setPinError('');
+    
+    try {
+      console.log('Verifying PIN for quick login...');
+      
+      // Attempt login with PIN
+      const success = await PinService.loginWithPin(verificationPin, dispatch);
+      
+      if (success) {
+        console.log('PIN verified successfully, logging in');
+        
+        // Reset PIN states
+        setPinVerificationVisible(false);
+        setVerificationPin('');
+        
+        // Navigate to portal
+        PinService.navigateToPortal(router);
+      } else {
+        setPinError('Invalid PIN');
+      }
+    } catch (error) {
+      console.error('Error verifying PIN:', error);
+      setPinError('An error occurred');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+  
+  const handleCancelPin = () => {
+    console.log('PIN creation cancelled by user');
+    setPinCreationVisible(false);
+    setPin('');
+    setConfirmPin('');
+    
+    // Navigate to portal since login was successful but PIN creation was cancelled
+    console.log('Navigating to portal after PIN creation cancelled');
+    PinService.navigateToPortal(router);
+  };
+  
+  const handleCancelPinVerification = useCallback(() => {
+    // Reset PIN verification state
+    setPinVerificationVisible(false);
+    setVerificationPin('');
+    setPinError('');
+    
+    // Stop the periodic checks to prevent the modal from reappearing
+    clearPeriodicChecks();
+    
+    // Disable PIN protection temporarily for this session
+    // This will prevent the modal from showing again until app restart
+    AsyncStorage.setItem(PIN_ENABLED_KEY, 'false').catch(error => {
+      console.error('Error disabling PIN protection:', error);
+    });
+  }, []);
+  
+  const handleForgotPassword = () => {
+    setForgotPasswordVisible(true);
+    setEmail('');
+    setResetError('');
+  };
+  
+  const handleResetPassword = async () => {
+    if (!email || !email.includes('@')) {
+      setResetError('Lütfen geçerli bir e-posta adresi giriniz.');
+      return;
+    }
+
+    setIsResetLoading(true);
+    setResetError('');
+
+    try {
+      await apiService.post(`/Kullanici/ForgotPassword/${encodeURIComponent(email)}`, {});
+      
+      setForgotPasswordVisible(false);
+      Alert.alert(
+        "Şifre Sıfırlama",
+        "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.",
+        [{ text: "Tamam" }]
+      );
+    } catch (error) {
+      console.error('Password reset error:', error);
+      setResetError('Şifre sıfırlama işlemi başarısız oldu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setIsResetLoading(false);
+    }
+  };
+
+  // Add a function to clear any periodic checks
+  const clearPeriodicChecks = () => {
+    if (periodicCheckInterval) {
+      console.log('LOGIN COMPONENT: Clearing periodic PIN checks');
+      clearInterval(periodicCheckInterval);
+      periodicCheckInterval = null;
+    }
+  };
+
+  // Function to handle forgotten PIN
+  const handleForgotPin = useCallback(() => {
+    // First close the PIN verification modal
+    setPinVerificationVisible(false);
+    setVerificationPin('');
+    setPinError('');
+    
+    // Confirm with the user before removing the PIN
+    Alert.alert(
+      "Forgot PIN",
+      "Are you sure you want to clear your saved PIN? You'll need to log in with your username and password.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => {
+            // If user cancels, we should reset the PIN verification state
+            // but not remove the saved PIN
+            setPinVerificationVisible(false);
+          }
+        },
+        {
+          text: "Clear PIN",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Remove saved PIN
+              await PinService.clearPinData();
+              
+              // Show confirmation to user
+              Alert.alert(
+                "PIN Cleared",
+                "Your saved PIN has been removed. Please log in with your username and password.",
+                [{ text: "OK" }]
+              );
+            } catch (error) {
+              console.error('Error clearing PIN:', error);
+              Alert.alert(
+                "Error",
+                "There was a problem clearing your PIN. Please try again.",
+                [{ text: "OK" }]
+              );
+            }
+          }
+        }
+      ]
+    );
+  }, []);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1981ef" />
+      <StatusBar barStyle="light-content" backgroundColor="#1f1f1f" />
       <LinearGradient
-        colors={['#1981ef', '#084b8c']}
+        colors={[ '#e74f3d','#e74f3d']}
+        // colors={[ '#e74f3d','#5d1c16',  '#1f1f1f',]}
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}>
+        end={{ x: 1, y: 1 }}>
         
-        <Animated.View 
-          style={[
-            styles.content, 
-            { 
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}>
-          <View style={styles.topSection}>
-            <Image
-              source={require('../../assets/images/ASD-Logo-Website 221.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-
-          <View style={styles.formContainer}>
-            <Text style={styles.welcomeText}>Hoş Geldiniz</Text>
-            <Text style={styles.title}>ASD Portal</Text>
-            <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
-
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={20} color="#ff3b30" />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Kullanıcı Adı"
-                placeholderTextColor="#999"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          
+          {/* Forgot Password Modal */}
+          <ForgotPasswordModal
+            visible={forgotPasswordVisible}
+            onClose={() => setForgotPasswordVisible(false)}
+            email={email}
+            setEmail={setEmail}
+            resetError={resetError}
+            isLoading={isResetLoading}
+            onResetPassword={handleResetPassword}
+          />
+          
+          {/* PIN Creation Modal */}
+          <PinCreationModal
+            visible={pinCreationVisible}
+            onClose={handleCancelPin}
+            pin={pin}
+            setPin={setPin}
+            confirmPin={confirmPin}
+            setConfirmPin={setConfirmPin}
+            isValid={!pinError}
+            isLoading={pinLoading}
+            onCreatePin={handleCreatePin}
+            error={pinError}
+          />
+          
+          {/* PIN Verification Modal */}
+          <PinVerificationModal
+            visible={pinVerificationVisible}
+            pin={verificationPin}
+            setPin={setVerificationPin}
+            onVerify={handleVerifyPin}
+            onCancel={handleCancelPinVerification}
+            loading={pinLoading}
+            error={pinError}
+            username={savedUsername}
+          />
+          
+          <Animated.View 
+            style={[
+              styles.content, 
+              { 
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}>
+            
+            {/* Logo Header */}
+            <LogoHeader logoScale={logoScale} />
+            
+            {/* Login Form */}
+            <Animated.View style={{ transform: [{ translateY: inputsSlideAnim }] }}>
+              <LoginForm
+                username={username}
+                setUsername={setUsername}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                rememberMe={rememberMe}
+                setRememberMe={setRememberMe}
+                handleLogin={handleLogin}
+                handleForgotPassword={handleForgotPassword}
+                isLoading={isLoading}
+                error={error}
+                buttonFadeAnim={buttonFadeAnim}
+                slideAnim={slideAnim}
               />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Şifre"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={handleLogin}
-              disabled={isLoading}>
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.loginButtonText}>Giriş Yap</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.bottomSection}>
-            <Text style={styles.version}>© ASD 2024 • Version 1.0.1</Text>
-          </View>
-        </Animated.View>
+            </Animated.View>
+          </Animated.View>
+          
+          {/* Footer */}
+          <AppFooter />
+        </ScrollView>
       </LinearGradient>
     </KeyboardAvoidingView>
   );
@@ -181,112 +624,13 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
     padding: SCREEN_WIDTH * 0.05,
-  },
-  topSection: {
-    alignItems: 'center',
     marginTop: SCREEN_HEIGHT * 0.05,
-  },
-  formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: SCREEN_WIDTH * 0.06,
-    marginVertical: SCREEN_HEIGHT * 0.04,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  logo: {
-    width: SCREEN_WIDTH * 0.6,
-    height: SCREEN_HEIGHT * 0.15,
-  },
-  welcomeText: {
-    fontSize: SCREEN_WIDTH * 0.045,
-    color: '#666',
-    marginBottom: 5,
-  },
-  title: {
-    fontSize: SCREEN_WIDTH * 0.07,
-    fontWeight: 'bold',
-    color: '#1981ef',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: SCREEN_WIDTH * 0.04,
-    color: '#666',
-    marginBottom: SCREEN_HEIGHT * 0.03,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    marginBottom: SCREEN_HEIGHT * 0.02,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#ebebeb',
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 15,
-    fontSize: SCREEN_WIDTH * 0.04,
-    color: '#333',
-  },
-  eyeIcon: {
-    padding: 10,
-  },
-  loginButton: {
-    backgroundColor: '#1981ef',
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: SCREEN_HEIGHT * 0.02,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: SCREEN_WIDTH * 0.045,
-    fontWeight: 'bold',
-  },
-  buttonIcon: {
-    marginLeft: 10,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFEEEE',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: SCREEN_HEIGHT * 0.02,
-    borderLeftWidth: 3,
-    borderLeftColor: '#ff3b30',
-  },
-  errorText: {
-    color: '#ff3b30',
-    marginLeft: 8,
-    fontSize: SCREEN_WIDTH * 0.035,
-    flex: 1,
-  },
-  bottomSection: {
-    alignItems: 'center',
-    marginBottom: SCREEN_HEIGHT * 0.03,
-  },
-  version: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: SCREEN_WIDTH * 0.035,
   },
 });
