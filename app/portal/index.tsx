@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../store";
 import { setUserData } from "../store/slices/userSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function Portal() {
   const router = useRouter();
@@ -57,47 +60,35 @@ export default function Portal() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../assets/images/portal.png")}
+            style={styles.logo}
+          />
+        </View>
         <View style={styles.topBar}>
           <View style={styles.userInfo}>
             <TouchableOpacity
               style={styles.userInfoButton}
               onPress={() => router.push("profile" as any)}
             >
-              <Ionicons name="person-circle-outline" size={37} color="#000" />
               <View style={styles.userDetails}>
+                <Ionicons name="person-circle-outline" size={37} color="#000" />
                 <Text style={styles.userName}>
                   {userData?.adSoyad || "Tanımlı Değildir"}
                 </Text>
+              </View>
+
+              <View style={styles.userDetails}>
                 <Text style={styles.userRole}>{userData?.gorev || ""}</Text>
               </View>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.weatherInfo}>
-            <Ionicons name="calendar-outline" size={24} color="#000" />
-            <View>
-              <Text style={styles.weatherText}>
-                {currentTime.toLocaleDateString('tr-TR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric'
-                })}
-              </Text>
-              <Text style={styles.timeText}>
-                {currentTime.toLocaleDateString('tr-TR', {
-                  weekday: 'long',
-
-                })}
-              </Text>
-            </View>
-          </View>
         </View>
 
-        <View
-          style={styles.information}
-        >
+        <View style={styles.information}>
           <LinearGradient
-            colors={["#FF0000", "#FF4500"]}
+            colors={["#EAE860", "#EAE860"]}
             style={[styles.gradientCard, styles.alertCard]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -108,7 +99,6 @@ export default function Portal() {
             </Text>
           </LinearGradient>
         </View>
-
         <View style={styles.modalContainer}>
           <TouchableOpacity
             style={styles.card}
@@ -165,21 +155,7 @@ export default function Portal() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.logoContainer}>
-          <Image
-            source={require("../../assets/images/ASD-Logo-Website 221.png")}
-            style={styles.logo}
-          />
-          <Text style={styles.logoSubtext}>Version 1.0.1</Text>
-          <Text style={styles.logoSubtext}>Update Date: 07.07.2025</Text>
-        </View>
       </SafeAreaView>
-
-      <View style={styles.bottomBar}>
-        <View style={styles.bottomLineRed} />
-        <View style={styles.bottomLineGrey} />
-      </View>
     </View>
   );
 }
@@ -188,57 +164,48 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF",
+    width: screenWidth,
   },
   safeArea: {
     flex: 1,
-    marginTop: 40, // Add space for status bar
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: screenWidth * 0.2,
   },
   topBar: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: "#d9d9d9",
+    marginHorizontal: screenWidth * 0.05,
+    borderRadius: 12,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
   },
   userDetails: {
-    marginLeft: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   userName: {
     fontSize: 14,
     fontWeight: "bold",
     fontFamily: "Baloo2-SemiBold",
+    marginLeft: screenWidth * 0.02,
   },
   userRole: {
     fontSize: 12,
     color: "#666",
   },
-  weatherInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  weatherText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-    width: 100,
-  },
+
   timeText: {
-    marginLeft: 8,
+    marginLeft: screenWidth * 0.02,
     fontSize: 13,
     color: "#666",
   },
   card: {
-    width: "80%",
+    width: screenWidth * 0.8,
     borderRadius: 12,
-    marginHorizontal: 20,
     marginVertical: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -248,20 +215,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   gradientCard: {
-    padding: 16,
+    padding: screenWidth * 0.04,
     borderRadius: 12,
   },
   alertCard: {
-    paddingVertical: 20,
+    paddingVertical: screenWidth * 0.05,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFF",
+    color: "#000",
+    textAlign: "center",
   },
   alertText: {
-    color: "#FFF",
-    marginTop: 4,
+    color: "#525252",
+    marginTop: screenWidth * 0.01,
   },
   cardContent: {
     flexDirection: "row",
@@ -277,13 +244,13 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 22,
     color: "#FFF",
-    marginLeft: 16,
+    marginLeft: screenWidth * 0.04,
     fontFamily: "Baloo2-Regular",
   },
   logoContainer: {
     alignItems: "center",
-    marginTop: "auto",
-    marginBottom: 20,
+    marginTop: screenWidth * 0.05,
+    marginBottom: screenWidth * 0.05,
   },
   logoSubtext: {
     fontSize: 12,
@@ -294,21 +261,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   logo: {
-    width: 120,
-    height: 50,
+    width: screenWidth * 0.6,
+    height: screenWidth * 0.25,
     resizeMode: "contain",
-    marginBottom: 5,
+    marginVertical: screenWidth * 0.05,
   },
   modalContainer: {
     alignItems: "center",
     justifyContent: "center",
-    flex: 1,
+    borderColor: "#d9d9d9",
+    borderTopWidth: 1,
+    paddingVertical: screenWidth * 0.05,
+    marginHorizontal: screenWidth * 0.25,
   },
   information: {
-    width: "90%",
+    width: screenWidth * 0.9,
     borderRadius: 12,
-    marginHorizontal: 20,
-    marginVertical: 8,
+    marginHorizontal: screenWidth * 0.05,
+    marginVertical: screenWidth * 0.075,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -317,17 +287,40 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   bottomLineRed: {
-    flex: 3,
     color: "#FF1A00",
   },
   bottomLineGrey: {
-    flex: 1,
     color: "#808080",
   },
   userInfoButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
+    paddingVertical: screenWidth * 0.02,
+    paddingHorizontal: screenWidth * 0.04,
     fontFamily: "Baloo2-Regular",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  settingsButton: {
+    position: "absolute",
+    bottom: screenWidth * 0.075,
+    right: screenWidth * 0.05,
+    width: screenWidth * 0.15,
+    height: screenWidth * 0.15,
+    borderRadius: 50,
+    backgroundColor: "#D9D9D9",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 20,
+    color: "#000",
+    textAlign: "center",
+    marginBottom: screenWidth * 0.025,
   },
 });

@@ -7,6 +7,10 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  savedCredentials: {
+    username: string | null;
+    password: string | null;
+  };
 }
 
 const initialState: AuthState = {
@@ -14,6 +18,10 @@ const initialState: AuthState = {
   token: null,
   isLoading: false,
   error: null,
+  savedCredentials: {
+    username: null,
+    password: null,
+  },
 };
 
 const authSlice = createSlice({
@@ -38,11 +46,30 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.token = null;
       state.error = null;
+      state.savedCredentials = {
+        username: null,
+        password: null,
+      };
+    },
+    saveCredentials: (state, action: PayloadAction<{username: string, password: string}>) => {
+      state.savedCredentials.username = action.payload.username;
+      state.savedCredentials.password = action.payload.password;
+    },
+    clearCredentials: (state) => {
+      state.savedCredentials.username = null;
+      state.savedCredentials.password = null;
     },
   },
 });
 
-export const { loginStart, loginSuccess, loginFailure, logout } = authSlice.actions;
+export const { 
+  loginStart, 
+  loginSuccess, 
+  loginFailure, 
+  logout, 
+  saveCredentials,
+  clearCredentials
+} = authSlice.actions;
 
 export const login = (username: string, password: string) => async (dispatch: any) => {
   try {
@@ -62,10 +89,13 @@ export const login = (username: string, password: string) => async (dispatch: an
     const data = await response.json();
 
     if (response.ok && data.token) {
+      console.log('Login successful, saving token');
       await AsyncStorage.setItem('userToken', data.token.accessToken);
       await AsyncStorage.setItem('userData', JSON.stringify(data.userData));
+      
       dispatch(loginSuccess(data.token.accessToken));
       dispatch(setUserData(data.userData));
+      dispatch(saveCredentials({username, password}));
     } else {
       dispatch(loginFailure(data.message || 'Giriş başarısız'));
     }
@@ -78,6 +108,8 @@ export const logoutUser = () => async (dispatch: any) => {
   try {
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userData');
+    await AsyncStorage.removeItem('pinLoginEnabled');
+    await AsyncStorage.removeItem('userPin');
     dispatch(logout());
     dispatch({ type: 'user/clearUserData' });
   } catch (error) {
