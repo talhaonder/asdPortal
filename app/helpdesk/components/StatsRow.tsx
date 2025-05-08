@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { Ticket } from "./TicketItem";
 
 // Get screen width for responsive design
@@ -7,9 +7,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface StatsRowProps {
   tickets: Ticket[];
+  onTabChange?: (tab: 'all' | 'open' | 'in-progress' | 'closed') => void;
 }
 
-const StatsRow: React.FC<StatsRowProps> = ({ tickets }) => {
+const StatsRow: React.FC<StatsRowProps> = ({ tickets, onTabChange }) => {
   const openCount = tickets.filter((t) => t.durumAdi === "Açık").length;
 
   const inProgressCount = tickets.filter((t) => {
@@ -34,18 +35,30 @@ const StatsRow: React.FC<StatsRowProps> = ({ tickets }) => {
     <>
       <Text style={styles.statsTitle}>Talep Durumları</Text>
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => onTabChange && onTabChange('open')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.statValue}>{openCount}</Text>
           <Text style={styles.statLabel}>Açık Talepler</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => onTabChange && onTabChange('in-progress')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.statValue}>{inProgressCount}</Text>
           <Text style={styles.statLabel}>İşlemdeki</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.statCard}
+          onPress={() => onTabChange && onTabChange('closed')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.statValue}>{closedCount}</Text>
           <Text style={styles.statLabel}>Çözüldü</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </>
   );
@@ -55,37 +68,37 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: SCREEN_WIDTH * 0.05,
+    marginBottom: SCREEN_WIDTH * 0.03,
     width: "100%",
   },
   statsTitle: {
-    fontSize: SCREEN_WIDTH * 0.04,
+    fontSize: SCREEN_WIDTH * 0.035,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: SCREEN_WIDTH * 0.01,
+    marginBottom: SCREEN_WIDTH * 0.005,
     marginLeft: SCREEN_WIDTH * 0.02,
   },
   statCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: SCREEN_WIDTH * 0.04,
+    borderRadius: 8,
+    padding: SCREEN_WIDTH * 0.025,
     flex: 1,
-    margin: SCREEN_WIDTH * 0.01,
+    margin: SCREEN_WIDTH * 0.008,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 1,
+    elevation: 2,
   },
   statValue: {
-    fontSize: SCREEN_WIDTH * 0.06,
+    fontSize: SCREEN_WIDTH * 0.045,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: SCREEN_WIDTH * 0.01,
+    marginBottom: SCREEN_WIDTH * 0.005,
   },
   statLabel: {
-    fontSize: SCREEN_WIDTH * 0.035,
+    fontSize: SCREEN_WIDTH * 0.03,
     color: "#666",
     textAlign: "center",
   },
