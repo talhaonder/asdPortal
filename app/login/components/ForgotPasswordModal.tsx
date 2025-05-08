@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: 54,
+    height: 64,
   },
   inputIcon: {
     marginRight: 12,
@@ -163,6 +163,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#333',
+    textAlignVertical: 'center',
+    includeFontPadding: true,
+    paddingVertical: 12,
   },
   clearButton: {
     padding: 6,
