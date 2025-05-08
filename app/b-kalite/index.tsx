@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -9,18 +15,18 @@ import {
   TextInput,
   Dimensions,
   ActivityIndicator,
-} from 'react-native';
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { ProductItem, TabItem, ApiResponse } from './types';
-import ProductCard from './components/ProductCard';
-import ProductModal from './components/ProductModal';
-import AnimatedTabs from './components/AnimatedTabs';
-import NoDataView from './components/NoDataView';
-import SkeletonLoader from './components/SkeletonLoader';
+import { ProductItem, TabItem, ApiResponse } from "./types";
+import ProductCard from "./components/ProductCard";
+import ProductModal from "./components/ProductModal";
+import AnimatedTabs from "./components/AnimatedTabs";
+import NoDataView from "./components/NoDataView";
+import SkeletonLoader from "./components/SkeletonLoader";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function BKalite() {
   const router = useRouter();
@@ -32,45 +38,49 @@ export default function BKalite() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ProductItem | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [sonuc, setSonuc] = useState('tumu');
+  const [searchText, setSearchText] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sonuc, setSonuc] = useState("tumu");
   const [modalLoading, setModalLoading] = useState(false);
 
-  const BASE_URL = useMemo(() => 'http://192.168.0.88:90', []);
+  const BASE_URL = useMemo(() => "http://192.168.0.88:90", []);
   const fetchUrl = useMemo(() => {
-    const endpoint = '/api/Product/Listele';
-    let url = selectedIndex === 4
-      ? `${BASE_URL}${endpoint}?sonuc=0`
-      : `${BASE_URL}${endpoint}?karar=${selectedIndex + 1}&sonuc=0`;
+    const endpoint = "/api/Product/Listele";
+    let url =
+      selectedIndex === 4
+        ? `${BASE_URL}${endpoint}?sonuc=0`
+        : `${BASE_URL}${endpoint}?karar=${selectedIndex + 1}&sonuc=0`;
 
-    if (sonuc !== 'tumu') {
-      url = url.replace('sonuc=0', `sonuc=${sonuc}`);
+    if (sonuc !== "tumu") {
+      url = url.replace("sonuc=0", `sonuc=${sonuc}`);
     }
-    
-    console.log('Fetching from URL:', url);
+
+    console.log("Fetching from URL:", url);
     return url;
   }, [selectedIndex, BASE_URL, sonuc]);
 
-  const tabsData = useMemo(() => [
-    { icon: 'Loader', label: 'Onay Bekliyor' },
-    { icon: 'Loader', label: 'A Sevk' },
-    { icon: 'AArrowUp', label: 'B Sevk' },
-    { icon: 'ShieldMinus', label: 'B Kalsın' },
-  ], []);
+  const tabsData = useMemo(
+    () => [
+      { icon: "Loader", label: "Onay Bekliyor" },
+      { icon: "Loader", label: "A Sevk" },
+      { icon: "AArrowUp", label: "B Sevk" },
+      { icon: "ShieldMinus", label: "B Kalsın" },
+    ],
+    []
+  );
 
   const handlePressItem = useCallback((item: ProductItem) => {
     // First set the selected item to make sure it's available
     setSelectedItem(item);
-    
+
     // Set loading state
     setModalLoading(true);
-    
+
     // Small delay to ensure the item is properly set in state
     requestAnimationFrame(() => {
       // Then show modal
       setModalVisible(true);
-      
+
       // End loading after a short delay
       setTimeout(() => {
         setModalLoading(false);
@@ -81,12 +91,12 @@ export default function BKalite() {
   const handleCloseModal = useCallback(() => {
     // First hide the modal
     setModalVisible(false);
-    
+
     // Disable loading state if it's active
     if (modalLoading) {
       setModalLoading(false);
     }
-    
+
     // After animation completes, clear the item
     setTimeout(() => {
       setSelectedItem(null);
@@ -100,72 +110,76 @@ export default function BKalite() {
       case 4:
       case 9:
       case 12:
-        return 'Ön - Köşe';
+        return "Ön - Köşe";
       case 2:
       case 3:
       case 5:
       case 8:
       case 10:
       case 11:
-        return 'Ön - Kenar';
+        return "Ön - Kenar";
       case 6:
       case 7:
-        return 'Ön - Orta';
+        return "Ön - Orta";
       case 13:
       case 16:
       case 21:
       case 24:
-        return 'Arka - Köşe';
+        return "Arka - Köşe";
       case 14:
       case 15:
       case 17:
       case 20:
       case 22:
       case 23:
-        return 'Arka - Kenar';
+        return "Arka - Kenar";
       case 18:
       case 19:
-        return 'Arka - Orta';
+        return "Arka - Orta";
       default:
-        return 'Bilinmiyor';
+        return "Bilinmiyor";
     }
   }, []);
 
-  const renderItem = useCallback(({ item }: { item: ProductItem }) => (
-    <ProductCard
-      item={item}
-      onPress={handlePressItem}
-      getHataYeriDisplay={getHataYeriDisplay}
-    />
-  ), [handlePressItem, getHataYeriDisplay]);
+  const renderItem = useCallback(
+    ({ item }: { item: ProductItem }) => (
+      <ProductCard
+        item={item}
+        onPress={handlePressItem}
+        getHataYeriDisplay={getHataYeriDisplay}
+      />
+    ),
+    [handlePressItem, getHataYeriDisplay]
+  );
 
-  const keyExtractor = useCallback((item: ProductItem) =>
-    `${item.id}-${item.sipariskodu}`, []
+  const keyExtractor = useCallback(
+    (item: ProductItem) => `${item.id}-${item.sipariskodu}`,
+    []
   );
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setShowNoData(false);
-    
+
     try {
       console.log(`Fetching data from: ${fetchUrl}`);
       const response = await fetch(fetchUrl);
-      
+
       if (!response.ok) {
         throw new Error(`API error with status: ${response.status}`);
       }
-      
-      const result = await response.json() as ApiResponse;
+
+      const result = (await response.json()) as ApiResponse;
       console.log(`Received API response:`, result);
-      
+
       const items = result.data || [];
       console.log(`Processed ${items.length} items`);
-      
+
       setData(items);
       handleSort(sortOrder, items);
       setShowNoData(items.length === 0);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setData([]);
       setFilteredData([]);
       setShowNoData(true);
@@ -178,36 +192,43 @@ export default function BKalite() {
     setSelectedIndex(index);
   }, []);
 
-  const handleSort = useCallback((order: 'asc' | 'desc', itemsToSort = data) => {
-    setSortOrder(order);
-    const sorted = [...itemsToSort].sort((a, b) => {
-      const dateA = new Date(a.tarih).getTime();
-      const dateB = new Date(b.tarih).getTime();
-      return order === 'desc' ? dateB - dateA : dateA - dateB;
-    });
-    setFilteredData(sorted);
-  }, [data]);
+  const handleSort = useCallback(
+    (order: "asc" | "desc", itemsToSort = data) => {
+      setSortOrder(order);
+      const sorted = [...itemsToSort].sort((a, b) => {
+        const dateA = new Date(a.tarih).getTime();
+        const dateB = new Date(b.tarih).getTime();
+        return order === "desc" ? dateB - dateA : dateA - dateB;
+      });
+      setFilteredData(sorted);
+    },
+    [data]
+  );
 
-  const handleSearch = useCallback((text: string) => {
-    setSearchText(text);
-    if (!text) {
-      setFilteredData(data);
-      return;
-    }
-    const filtered = data.filter(item =>
-      item.sipariskodu?.toLowerCase().includes(text.toLowerCase()) ||
-      item.description?.toLowerCase().includes(text.toLowerCase()) ||
-      item.musteriAd?.toLowerCase().includes(text.toLowerCase())
-    );
-    setFilteredData(filtered);
-  }, [data]);
+  const handleSearch = useCallback(
+    (text: string) => {
+      setSearchText(text);
+      if (!text) {
+        setFilteredData(data);
+        return;
+      }
+      const filtered = data.filter(
+        (item) =>
+          item.sipariskodu?.toLowerCase().includes(text.toLowerCase()) ||
+          item.description?.toLowerCase().includes(text.toLowerCase()) ||
+          item.musteriAd?.toLowerCase().includes(text.toLowerCase())
+      );
+      setFilteredData(filtered);
+    },
+    [data]
+  );
 
   const handleKararUpdate = useCallback(() => {
     console.log("handleKararUpdate called - refreshing data");
     setIsLoading(true);
     setTimeout(() => {
-      fetchData(); 
-    }, 500); 
+      fetchData();
+    }, 500);
   }, [fetchData]);
 
   useEffect(() => {
@@ -217,7 +238,7 @@ export default function BKalite() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -236,29 +257,47 @@ export default function BKalite() {
         />
       </View>
 
-      {headerVisible && (
-        <View style={styles.headerSecondBar}>
-          <TouchableOpacity style={styles.sortButton} onPress={() => handleSort('desc')}>
-            <Ionicons name="arrow-down" size={20} color={sortOrder === 'desc' ? "#1981ef" : "#777"} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sortButton} onPress={() => handleSort('asc')}>
-            <Ionicons name="arrow-up" size={20} color={sortOrder === 'asc' ? "#1981ef" : "#777"} />
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#777" style={styles.searchIcon} />
+        <Ionicons
+          name="search"
+          size={20}
+          color="#777"
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Kod veya açıklama ara..."
           value={searchText}
           onChangeText={handleSearch}
         />
-        {searchText !== '' && (
-          <TouchableOpacity onPress={() => handleSearch('')}>
+        {searchText !== "" && (
+          <TouchableOpacity onPress={() => handleSearch("")}>
             <Ionicons name="close-circle" size={20} color="#777" />
           </TouchableOpacity>
+        )}
+        {headerVisible && (
+          <View style={styles.headerSecondBar}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => handleSort("desc")}
+            >
+              <Ionicons
+                name="arrow-down"
+                size={20}
+                color={sortOrder === "desc" ? "#1981ef" : "#777"}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => handleSort("asc")}
+            >
+              <Ionicons
+                name="arrow-up"
+                size={20}
+                color={sortOrder === "asc" ? "#1981ef" : "#777"}
+              />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -291,37 +330,38 @@ export default function BKalite() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   headerRight: {
-    width: 40, 
+    width: 40,
   },
   header: {
     padding: 10,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
     paddingHorizontal: 12,
     margin: 16,
+    justifyContent: "space-between",
   },
   searchIcon: {
     marginRight: 8,
@@ -331,12 +371,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   headerSecondBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    justifyContent: "flex-end",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   sortButton: {
     padding: 8,
@@ -345,4 +384,4 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingBottom: 20,
   },
-}); 
+});
