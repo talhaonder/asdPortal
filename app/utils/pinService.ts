@@ -130,12 +130,16 @@ export class PinService {
    */
   static async saveCredentials(username: string, password: string): Promise<void> {
     try {
-      console.log('Saving credentials for PIN login...');
+      console.log('Saving credentials for auto-login...');
       await AsyncStorage.setItem(STORED_USERNAME_KEY, username);
       await AsyncStorage.setItem(STORED_PASSWORD_KEY, password);
+      // Also set Remember Me flag to true when saving credentials
+      await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
+      // Store the same username in both places for consistency
+      await AsyncStorage.setItem(SAVED_USERNAME_KEY, username);
       console.log('Credentials saved successfully');
     } catch (error) {
-      console.error('Error saving credentials for PIN login:', error);
+      console.error('Error saving credentials for auto-login:', error);
     }
   }
   
@@ -210,6 +214,43 @@ export class PinService {
       console.log('Now navigating to portal');
       router.replace('/portal');
     }, 500);
+  }
+
+  /**
+   * Automatically log in with saved credentials without requiring PIN
+   */
+  static async autoLoginWithSavedCredentials(dispatch: any): Promise<boolean> {
+    try {
+      console.log('Attempting automatic login with saved credentials...');
+
+      // Get stored credentials
+      const username = await AsyncStorage.getItem(STORED_USERNAME_KEY);
+      const password = await AsyncStorage.getItem(STORED_PASSWORD_KEY);
+      const rememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
+
+      // Check if we have the stored credentials and "Remember Me" is enabled
+      if (!username || !password || rememberMe !== 'true') {
+        console.error('No saved credentials found or "Remember Me" is not enabled');
+        return false;
+      }
+
+      // Try to use saved token first if it exists
+      const token = await AsyncStorage.getItem(USER_TOKEN_KEY);
+      if (token) {
+        console.log('Using existing token for automatic login');
+        // We can try to use the existing token if it's not expired
+        dispatch(loginSuccess(token));
+        return true;
+      }
+
+      console.log('No valid token found, performing full login with saved credentials');
+      // Otherwise do a fresh login with the saved credentials
+      await dispatch(login(username, password));
+      return true;
+    } catch (error) {
+      console.error('Error during automatic login:', error);
+      return false;
+    }
   }
 }
 
