@@ -179,6 +179,7 @@ export default function HelpdeskScreen() {
 
       <View style={styles.content}>
         {/* Stats Container */}
+        <StatsRow tickets={tickets} onTabChange={setActiveTab} />
 
         {/* Tabs */}
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
