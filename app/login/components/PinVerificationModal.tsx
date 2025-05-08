@@ -155,7 +155,10 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 18,
     textAlign: 'center',
-    letterSpacing: 10
+    letterSpacing: 10,
+    height: 64,
+    includeFontPadding: true,
+    paddingVertical: 12,
   },
   buttonContainer: {
     width: '100%',
