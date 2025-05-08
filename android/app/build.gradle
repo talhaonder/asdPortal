@@ -91,8 +91,8 @@ android {
         applicationId 'com.talhaonder.asdPortal'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 8
+        versionName "1.0.7"
     }
     signingConfigs {
         debug {
@@ -101,12 +101,12 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-            release {
-               storeFile file(MYAPP_UPLOAD_STORE_FILE)
-               storePassword MYAPP_UPLOAD_STORE_PASSWORD
-               keyAlias MYAPP_UPLOAD_KEY_ALIAS
-               keyPassword MYAPP_UPLOAD_KEY_PASSWORD
-           }
+        release {
+            storeFile file(MYAPP_UPLOAD_STORE_FILE)
+            storePassword MYAPP_UPLOAD_STORE_PASSWORD
+            keyAlias MYAPP_UPLOAD_KEY_ALIAS
+            keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+        }
     }
     buildTypes {
         debug {
