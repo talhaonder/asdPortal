@@ -1,7 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
+import * as Linking from 'expo-linking';
 
 // Make sure base URL has proper protocol
 const BASE_URL = 'http://192.168.0.88:5276/api';
+
+// Function to handle auth errors
+const handleAuthError = async () => {
+  console.log('Authentication failed. Redirecting to login...');
+  // Clear token
+  await AsyncStorage.removeItem('userToken');
+  
+  // Show alert with a button to go to login
+  Alert.alert(
+    'Oturum Süresi Doldu',
+    'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
+    [
+      {
+        text: 'Giriş Yap',
+        onPress: () => {
+          // Navigate to login page
+          const loginUrl = Linking.createURL('/login');
+          Linking.openURL(loginUrl);
+        }
+      }
+    ],
+    { cancelable: false }
+  );
+};
 
 class ApiService {
   async getHeaders(isFormData = false) {
@@ -28,6 +54,12 @@ class ApiService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API Error Response: ${errorText}`);
+        
+        // Handle authentication errors
+        if (response.status === 401) {
+          await handleAuthError();
+        }
+        
         throw new Error(`API Error: ${response.status}, ${errorText}`);
       }
       
@@ -68,7 +100,13 @@ class ApiService {
       });
       
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        // Handle authentication errors
+        if (response.status === 401) {
+          await handleAuthError();
+        }
+        
+        const errorText = await response.text();
+        throw new Error(`API Error: ${response.status}, ${errorText}`);
       }
       
       const data = await response.json();
