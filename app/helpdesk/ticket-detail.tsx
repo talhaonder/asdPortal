@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import apiService from '../utils/apiService';
@@ -142,6 +142,12 @@ export default function TicketDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
+  const [statusUpdateMessage, setStatusUpdateMessage] = useState<{message: string, isError: boolean} | null>(null);
+  
+  // Add state for the rejection modal
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   
   // Use the custom hook for files
   const { 
@@ -237,6 +243,80 @@ export default function TicketDetailScreen() {
       fetchTicketDetails();
       fetchTicketFiles();
     }
+  };
+
+  const updateTicketStatus = async (statusId: number, reason?: string) => {
+    try {
+      setStatusUpdateLoading(true);
+      setStatusUpdateMessage(null);
+      
+      console.log(`Updating ticket status to ${statusId} for ticket ${ticketId}`);
+      
+      interface StatusResponse {
+        isSuccessful: boolean;
+        message?: string;
+      }
+      
+      // POST isteği yaparak veri gövdesi (body) ile durumID ve talepID gönderiyoruz
+      const requestData = {
+        id: ticketId,     // Seçilen talebin ID'si
+        durumId: statusId, // Yeni durum ID'si (5: Onayla, 3: Reddet)
+        cozum: reason     // Reddetme nedeni veya çözüm açıklaması
+      };
+      
+      console.log('Sending request data:', requestData);
+      
+      const response = await apiService.post<StatusResponse>('/HelpDesk/TalepDurumGuncelle', requestData);
+      console.log('Status update response:', response);
+      
+      if (response.isSuccessful) {
+        // Refresh ticket details
+        await fetchTicketDetails();
+        setStatusUpdateMessage({
+          message: statusId === 5 ? 'Çözüm onaylandı!' : 'Çözüm reddedildi!',
+          isError: false
+        });
+      } else {
+        setStatusUpdateMessage({
+          message: `Durum güncellenirken hata oluştu: ${response.message || 'Bilinmeyen hata'}`,
+          isError: true
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating ticket status:', error);
+      setStatusUpdateMessage({
+        message: `Bağlantı hatası: ${error.message}`,
+        isError: true
+      });
+    } finally {
+      setStatusUpdateLoading(false);
+    }
+  };
+
+  const handleApprove = () => {
+    updateTicketStatus(5); // Status ID 5 for Approval
+  };
+
+  const handleReject = () => {
+    // Show the rejection reason modal instead of immediately rejecting
+    setRejectModalVisible(true);
+  };
+  
+  const submitRejection = () => {
+    // Close the modal
+    setRejectModalVisible(false);
+    
+    // Submit with rejection reason
+    updateTicketStatus(3, rejectionReason); // Status ID 3 for Rejection
+    
+    // Clear the rejection reason for next time
+    setRejectionReason('');
+  };
+  
+  const cancelRejection = () => {
+    // Just close the modal without submitting
+    setRejectModalVisible(false);
+    setRejectionReason('');
   };
 
   return (
@@ -359,6 +439,58 @@ export default function TicketDetailScreen() {
               <View style={styles.cozumSection}>
                 <Text style={styles.sectionTitle}>Çözüm</Text>
                 <Text style={styles.cozumText}>{ticket.cozum}</Text>
+                
+                {/* Çözüm "İşlem yapılıyor" ya da "Çözüldü" durumunda olduğunda onayla/reddet düğmelerini göster */}
+                {(ticket.durumAdi === 'İşlem Yapılıyor' || ticket.durumAdi === 'Çözüldü') && (
+                  <View style={styles.cozumActions}>
+                    {statusUpdateMessage && (
+                      <View style={[
+                        styles.statusUpdateMessage,
+                        statusUpdateMessage.isError ? styles.statusUpdateError : styles.statusUpdateSuccess
+                      ]}>
+                        <Ionicons 
+                          name={statusUpdateMessage.isError ? "alert-circle" : "checkmark-circle"} 
+                          size={18} 
+                          color={statusUpdateMessage.isError ? "#E53935" : "#43A047"} 
+                          style={{marginRight: 8}} 
+                        />
+                        <Text style={styles.statusUpdateText}>{statusUpdateMessage.message}</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.cozumButtons}>
+                      <TouchableOpacity 
+                        style={[styles.cozumButton, styles.approveButton]} 
+                        onPress={handleApprove}
+                        disabled={statusUpdateLoading}
+                      >
+                        {statusUpdateLoading ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons name="checkmark" size={18} color="#fff" style={{marginRight: 8}} />
+                            <Text style={styles.cozumButtonText}>Çözümü Onayla</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.cozumButton, styles.rejectButton]} 
+                        onPress={handleReject}
+                        disabled={statusUpdateLoading}
+                      >
+                        {statusUpdateLoading ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons name="close" size={18} color="#fff" style={{marginRight: 8}} />
+                            <Text style={styles.cozumButtonText}>Reddet</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -368,6 +500,47 @@ export default function TicketDetailScreen() {
           </View>
         )}
       </ScrollView>
+      
+      {/* Rejection Reason Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={rejectModalVisible}
+        onRequestClose={cancelRejection}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Reddetme Nedeni</Text>
+            <Text style={styles.modalSubtitle}>Lütfen çözümü reddetme nedeninizi belirtin:</Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              multiline={true}
+              numberOfLines={4}
+              placeholder="Reddetme nedeni..."
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={cancelRejection}
+              >
+                <Text style={styles.cancelButtonText}>İptal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.submitButton]} 
+                onPress={submitRejection}
+                disabled={!rejectionReason.trim()}
+              >
+                <Text style={styles.submitButtonText}>Gönder</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -597,5 +770,118 @@ const styles = StyleSheet.create({
   },
   fileRetryButton: {
     padding: 4,
+  },
+  cozumActions: {
+    marginTop: 16,
+  },
+  statusUpdateMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    width: '100%',
+  },
+  statusUpdateError: {
+    backgroundColor: '#FFEBEE',
+  },
+  statusUpdateSuccess: {
+    backgroundColor: '#E8F5E9',
+  },
+  statusUpdateText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  cozumButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  cozumButton: {
+    padding: 12,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approveButton: {
+    backgroundColor: '#43A047',
+  },
+  rejectButton: {
+    backgroundColor: '#E53935',
+  },
+  cozumButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)', // Semi-transparent background
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#f9f9f9',
+    marginBottom: 20,
+    textAlignVertical: 'top', // For Android
+    minHeight: 100,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  cancelButton: {
+    backgroundColor: '#f1f1f1',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#E53935',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 }); 
