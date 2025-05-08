@@ -71,6 +71,10 @@ export default function Login() {
   const [pinError, setPinError] = useState('');
   const [savedUsername, setSavedUsername] = useState('');
   
+  // Auto-login welcome message state
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [autoLoginUsername, setAutoLoginUsername] = useState('');
+  
   // Forgot password state
   const [forgotPasswordVisible, setForgotPasswordVisible] = useState(false);
   const [email, setEmail] = useState('');
@@ -171,7 +175,7 @@ export default function Login() {
       hasSavedCredentials: !!(savedCredentials?.username && savedCredentials?.password)
     });
     
-    // Check for PIN verification needs on mount
+    // Check for auto-login needs on mount
     checkPinProtection();
     
     // Add debug for modal visibility state
@@ -186,15 +190,16 @@ export default function Login() {
     }
     
     periodicCheckInterval = setInterval(() => {
-      // Only check if PIN verification isn't already showing
-      if (!pinVerificationVisible && !pinCreationVisible) {
+      // Only check if already authenticated and PIN verification isn't already showing
+      if (!store.getState().auth.isAuthenticated && !pinVerificationVisible && !pinCreationVisible) {
         checkPinProtection();
       }
       
       // Log visibility periodically for debugging
-      console.log('LOGIN COMPONENT: Periodic modal check:', {
+      console.log('LOGIN COMPONENT: Periodic auth check:', {
         isPinCreationVisible: pinCreationVisible,
         isPinVerificationVisible: pinVerificationVisible,
+        isAuthenticated: store.getState().auth.isAuthenticated,
         timestamp: new Date().toISOString()
       });
     }, 2000); // Changed to 2 seconds to reduce log spam
@@ -208,26 +213,53 @@ export default function Login() {
   // Check for PIN-protected login
   const checkPinProtection = async () => {
     try {
-      console.log('LOGIN COMPONENT: Checking for PIN protection...');
+      console.log('LOGIN COMPONENT: Checking for auto-login...');
       
+      // Check for Remember Me flag and stored credentials
       const isPinEnabled = await PinService.isPinLoginEnabled();
+      const hasStoredCredentials = await PinService.hasStoredCredentials();
+      const rememberMeValue = await AsyncStorage.getItem('rememberMe');
+      const isRememberMeEnabled = rememberMeValue === 'true';
       
-      console.log('LOGIN COMPONENT: PIN check results:', {
+      console.log('LOGIN COMPONENT: Auto-login check results:', {
         isPinEnabled,
+        hasStoredCredentials,
+        isRememberMeEnabled,
         hasSavedCredentials: !!(savedCredentials?.username && savedCredentials?.password),
         isAuthenticated: store.getState().auth.isAuthenticated
       });
       
-      if (isPinEnabled) {
-        console.log('LOGIN COMPONENT: PIN protection active, showing verification modal');
-        const savedUsername = await PinService.getSavedUsername();
-        setSavedUsername(savedUsername || '');
-        setPinVerificationVisible(true);
+      // Only attempt auto-login if "Remember Me" is enabled AND we have stored credentials
+      if (hasStoredCredentials && isRememberMeEnabled) {
+        console.log('LOGIN COMPONENT: Remember Me is enabled and stored credentials found, attempting auto-login');
+        
+        // Get username for welcome message
+        const username = await PinService.getSavedUsername();
+        if (username) {
+          setAutoLoginUsername(username);
+          setIsAutoLoggingIn(true);
+        }
+        
+        // Attempt automatic login with saved credentials
+        const success = await PinService.autoLoginWithSavedCredentials(dispatch);
+        
+        if (success) {
+          console.log('LOGIN COMPONENT: Auto-login successful, navigating to portal');
+          // Keep the welcome message visible for a moment before navigating
+          setTimeout(() => {
+            PinService.navigateToPortal(router);
+          }, 1500);
+          return;
+        } else {
+          console.log('LOGIN COMPONENT: Auto-login failed, fallback to manual login');
+          setIsAutoLoggingIn(false);
+        }
       } else {
-        console.log('LOGIN COMPONENT: No PIN protection or missing PIN');
+        console.log('LOGIN COMPONENT: No Remember Me or stored credentials for auto-login');
       }
     } catch (error) {
-      console.error('LOGIN COMPONENT: Error checking PIN protection:', error);
+      console.error('LOGIN COMPONENT: Error checking auto-login:', error);
+      setIsAutoLoggingIn(false);
     }
   };
 
@@ -256,27 +288,33 @@ export default function Login() {
     if (!username || !password) {
       return;
     }
-    
+
     Keyboard.dismiss();
-    
+
     try {
       // Clear any previous PIN data when logging in normally
       console.log('Normal login, clearing previous PIN data');
       await PinService.clearPinData();
-      
+
       // Save "Remember Me" preference
       await saveCredentials();
-      
+
       // Attempt login
       await dispatch(login(username, password) as any);
       console.log('Login successful');
-      
-      // Store credentials for PIN login
+
+      // Store credentials for auto-login if "Beni Hatırla" is checked
       if (rememberMe) {
+        console.log('Remember Me is checked, saving credentials for auto-login');
         await PinService.saveCredentials(username, password);
-        console.log('Credentials stored for PIN login');
+      } else {
+        // If not checked, make sure to remove any saved credentials
+        console.log('Remember Me is not checked, removing any saved credentials');
+        await AsyncStorage.removeItem('storedUsername');
+        await AsyncStorage.removeItem('storedPassword');
+        await AsyncStorage.setItem('rememberMe', 'false');
       }
-      
+
       // Success animation
       Animated.sequence([
         Animated.timing(fadeAnim, {
@@ -290,16 +328,10 @@ export default function Login() {
           useNativeDriver: true,
         })
       ]).start();
-      
-      // Show PIN creation modal if remember me is checked
-      if (rememberMe) {
-        console.log('Showing PIN creation modal after successful login');
-        setPinCreationVisible(true);
-      } else {
-        // Navigate directly to portal if remember me is not checked
-        console.log('Navigating to portal (no PIN creation)');
-        PinService.navigateToPortal(router);
-      }
+
+      // Navigate directly to portal
+      console.log('Navigating to portal');
+      PinService.navigateToPortal(router);
     } catch (error) {
       console.error('Login error:', error);
       // Error shake animation
@@ -522,6 +554,14 @@ export default function Login() {
     );
   }, []);
 
+  // Add cleanup for auto-login state
+  useEffect(() => {
+    return () => {
+      // Clear auto-login state when unmounting
+      setIsAutoLoggingIn(false);
+    };
+  }, []);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -575,6 +615,26 @@ export default function Login() {
             error={pinError}
             username={savedUsername}
           />
+          
+          {/* Auto-Login Welcome Message */}
+          <Modal
+            transparent={true}
+            visible={isAutoLoggingIn}
+            animationType="fade"
+          >
+            <View style={styles.autoLoginContainer}>
+              <View style={styles.autoLoginCard}>
+                <Animated.View style={styles.autoLoginIconContainer}>
+                  <Ionicons name="person-circle" size={80} color="#e74f3d" />
+                </Animated.View>
+                <Text style={styles.autoLoginTitle}>Hoşgeldiniz, {autoLoginUsername}</Text>
+                <Text style={styles.autoLoginText}>
+                  Hesabınıza otomatik giriş yapılıyor...
+                </Text>
+                <ActivityIndicator size="large" color="#e74f3d" style={styles.autoLoginLoader} />
+              </View>
+            </View>
+          </Modal>
           
           <Animated.View 
             style={[
@@ -632,5 +692,41 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: SCREEN_WIDTH * 0.05,
     marginTop: SCREEN_HEIGHT * 0.05,
+  },
+  autoLoginContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  autoLoginCard: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 15,
+    width: SCREEN_WIDTH * 0.85,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  autoLoginIconContainer: {
+    marginBottom: 20,
+  },
+  autoLoginTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#222',
+  },
+  autoLoginText: {
+    fontSize: 16,
+    marginBottom: 20,
+    color: '#555',
+    textAlign: 'center',
+  },
+  autoLoginLoader: {
+    marginTop: 20,
   },
 });
