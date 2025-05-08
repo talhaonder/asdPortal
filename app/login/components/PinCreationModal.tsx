@@ -162,6 +162,9 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 18,
     textAlign: 'center',
+    height: 64,
+    includeFontPadding: true,
+    paddingVertical: 12,
   },
   pinInputError: {
     borderColor: '#ff3b30',
