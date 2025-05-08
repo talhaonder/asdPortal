@@ -179,7 +179,6 @@ export default function HelpdeskScreen() {
 
       <View style={styles.content}>
         {/* Stats Container */}
-        <StatsRow tickets={tickets} />
 
         {/* Tabs */}
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
@@ -206,6 +205,7 @@ export default function HelpdeskScreen() {
           />
         )}
       </View>
+
     </View>
   );
 }
@@ -214,7 +214,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-    paddingTop: SCREEN_WIDTH * 0.1, 
   },
   content: {
     flex: 1,
