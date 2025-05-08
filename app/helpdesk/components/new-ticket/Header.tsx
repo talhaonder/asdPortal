@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingTop: SCREEN_WIDTH * 0.1,
+    paddingTop: SCREEN_WIDTH * 0.05,
     paddingBottom: SCREEN_WIDTH * 0.025,
     paddingHorizontal: SCREEN_WIDTH * 0.04,
     borderBottomWidth: 1,
