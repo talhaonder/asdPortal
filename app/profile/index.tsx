@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -8,15 +8,15 @@ import {
   Image,
   ScrollView,
   Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useDispatch, useSelector } from 'react-redux';
-import { logoutUser } from '../store/slices/authSlice';
-import { RootState } from '../store';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser } from "../store/slices/authSlice";
+import { RootState } from "../store";
+import { LinearGradient } from "expo-linear-gradient";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function Profile() {
   const router = useRouter();
@@ -34,30 +34,24 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#1981ef', '#084b8c']}
-        style={styles.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.title}>Profil</Text>
-            <View style={styles.placeholder} />
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-
+      <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color="#000" />
+      </TouchableOpacity>
       <ScrollView style={styles.content}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
             <Ionicons name="person-circle" size={100} color="#1981ef" />
-            <View style={[styles.onlineIndicator, { backgroundColor: isOnline ? '#4CD964' : '#999' }]} />
+            <View
+              style={[
+                styles.onlineIndicator,
+                { backgroundColor: isOnline ? "#4CD964" : "#999" },
+              ]}
+            />
           </View>
-          <Text style={styles.name}>{userData?.adSoyad || 'Tanımlı Değildir'}</Text>
-          <Text style={styles.position}>{userData?.gorev || ''}</Text>
+          <Text style={styles.name}>
+            {userData?.adSoyad || "Tanımlı Değildir"}
+          </Text>
+          <Text style={styles.position}>{userData?.gorev || ""}</Text>
         </View>
 
         <View style={styles.infoSection}>
@@ -65,7 +59,9 @@ export default function Profile() {
             <Ionicons name="person-outline" size={24} color="#666" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Kullanıcı Adı</Text>
-              <Text style={styles.infoValue}>{userData?.kullaniciAdi || ''}</Text>
+              <Text style={styles.infoValue}>
+                {userData?.kullaniciAdi || ""}
+              </Text>
             </View>
           </View>
 
@@ -73,7 +69,7 @@ export default function Profile() {
             <Ionicons name="mail-outline" size={24} color="#666" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>E-posta</Text>
-              <Text style={styles.infoValue}>{userData?.mail || ''}</Text>
+              <Text style={styles.infoValue}>{userData?.mail || ""}</Text>
             </View>
           </View>
 
@@ -81,7 +77,7 @@ export default function Profile() {
             <Ionicons name="call-outline" size={24} color="#666" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Telefon</Text>
-              <Text style={styles.infoValue}>{userData?.telNo || ''}</Text>
+              <Text style={styles.infoValue}>{userData?.telNo || ""}</Text>
             </View>
           </View>
         </View>
@@ -98,28 +94,31 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F6F6',
+    backgroundColor: "#F6F6F6",
   },
   header: {
-    height: SCREEN_HEIGHT * 0.15,
+    height: SCREEN_HEIGHT * 0.05,
   },
   safeArea: {
     flex: 1,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     marginTop: 20,
   },
   backButton: {
-    padding: 8,
+    position: "relative",
+    left: 16,
+    top: 30,
+    zIndex: 1000,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
+    fontWeight: "bold",
+    color: "#FFF",
   },
   placeholder: {
     width: 40,
@@ -128,52 +127,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 20,
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
   },
   onlineIndicator: {
-    position: 'absolute',
+    position: "absolute",
     right: 5,
     bottom: 5,
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#4CD964',
+    backgroundColor: "#4CD964",
     borderWidth: 2,
-    borderColor: '#FFF',
+    borderColor: "#FFF",
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     marginTop: 12,
   },
   position: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   infoSection: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 12,
     marginHorizontal: 16,
     marginTop: 20,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
   },
   infoContent: {
     marginLeft: 12,
@@ -181,24 +180,24 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
   },
   infoValue: {
     fontSize: 16,
-    color: '#000',
+    color: "#000",
     marginTop: 2,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF",
     marginHorizontal: 16,
     marginTop: 20,
     marginBottom: 32,
     padding: 16,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -207,7 +206,7 @@ const styles = StyleSheet.create({
   logoutText: {
     marginLeft: 8,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
+    fontWeight: "600",
+    color: "#FF3B30",
   },
-}); 
+});
