@@ -21,7 +21,7 @@ const LogoHeader: React.FC<LogoHeaderProps> = ({ logoScale }) => {
         { transform: [{ scale: logoScale }] }
       ]}>
       <Image
-        source={require('../../../assets/images/portalLogin.png')}
+        source={require('../../../assets/images/asdLogo.png')}
         style={styles.logo}
         resizeMode="contain"
       />
