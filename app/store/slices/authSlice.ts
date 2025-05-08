@@ -106,10 +106,21 @@ export const login = (username: string, password: string) => async (dispatch: an
 
 export const logoutUser = () => async (dispatch: any) => {
   try {
+    // Clear authentication tokens and user data
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userData');
+    
+    // Clear PIN-related data
     await AsyncStorage.removeItem('pinLoginEnabled');
     await AsyncStorage.removeItem('userPin');
+    
+    // Clear all auto-login and remember me related data
+    await AsyncStorage.removeItem('rememberMe');
+    await AsyncStorage.removeItem('savedUsername');
+    await AsyncStorage.removeItem('storedUsername');
+    await AsyncStorage.removeItem('storedPassword');
+    
+    // Dispatch logout action to reset Redux state
     dispatch(logout());
     dispatch({ type: 'user/clearUserData' });
   } catch (error) {
