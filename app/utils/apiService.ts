@@ -116,6 +116,52 @@ class ApiService {
       throw error;
     }
   }
+
+  async validateToken(): Promise<boolean> {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        console.error('No token found in AsyncStorage for validation');
+        return false;
+      }
+      
+      console.log(`Token validation: Using token ${token.substring(0, 10)}...`);
+      
+      // Instead of using a dedicated validation endpoint that doesn't exist,
+      // use an existing lightweight API endpoint that requires authentication
+      const response = await fetch(`${BASE_URL}/Kullanici/GetUserInfo`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log(`Token validation response: Status ${response.status}`);
+      
+      if (response.ok) {
+        console.log('Token validation successful');
+        return true;
+      } else {
+        const errorText = await response.text();
+        console.error(`Token validation failed: Status ${response.status}, ${errorText}`);
+        
+        // If unauthorized, clear the token
+        if (response.status === 401) {
+          console.log('Clearing invalid token from storage');
+          await AsyncStorage.removeItem('userToken');
+        }
+        
+        return false;
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
+    }
+  }
+
+  async getDuyurular() {
+    return this.get('/Duyuru/GetAllDuyuru');
+  }
 }
 
 export default new ApiService(); 
