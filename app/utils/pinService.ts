@@ -223,32 +223,73 @@ export class PinService {
     try {
       console.log('Attempting automatic login with saved credentials...');
 
-      // Get stored credentials
-      const username = await AsyncStorage.getItem(STORED_USERNAME_KEY);
-      const password = await AsyncStorage.getItem(STORED_PASSWORD_KEY);
-      const rememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
-
-      // Check if we have the stored credentials and "Remember Me" is enabled
-      if (!username || !password || rememberMe !== 'true') {
-        console.error('No saved credentials found or "Remember Me" is not enabled');
-        return false;
+      // Check if auto-login is already in progress
+      const autoLoginInProgress = await AsyncStorage.getItem('autoLoginInProgress');
+      if (autoLoginInProgress === 'true') {
+        console.log('Another auto-login process is already running, waiting for it to complete...');
+        
+        // Wait for the other process to complete
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Check if authentication was successful
+        const isAuthenticated = store.getState().auth.isAuthenticated;
+        const token = await AsyncStorage.getItem(USER_TOKEN_KEY);
+        
+        if (isAuthenticated && token) {
+          console.log('User is already authenticated by another login process');
+          return true;
+        }
       }
+      
+      // Set auto-login in progress flag
+      await AsyncStorage.setItem('autoLoginInProgress', 'true');
+      
+      try {
+        // Get stored credentials
+        const username = await AsyncStorage.getItem(STORED_USERNAME_KEY);
+        const password = await AsyncStorage.getItem(STORED_PASSWORD_KEY);
+        const rememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
 
-      // Try to use saved token first if it exists
-      const token = await AsyncStorage.getItem(USER_TOKEN_KEY);
-      if (token) {
-        console.log('Using existing token for automatic login');
-        // We can try to use the existing token if it's not expired
-        dispatch(loginSuccess(token));
+        // Check if we have the stored credentials and "Remember Me" is enabled
+        if (!username || !password || rememberMe !== 'true') {
+          console.error('No saved credentials found or "Remember Me" is not enabled');
+          return false;
+        }
+
+        // Perform full login with saved credentials
+        console.log('Performing full login with saved credentials to ensure proper initialization');
+        
+        // Clear any existing token first to prevent conflicts
+        await AsyncStorage.removeItem(USER_TOKEN_KEY);
+        
+        // Do a fresh login with the saved credentials and wait for it to complete
+        const loginSuccess = await dispatch(login(username, password));
+        
+        // Check if login was successful
+        if (!loginSuccess) {
+          console.error('Auto-login failed: API login returned false');
+          return false;
+        }
+        
+        // Add a small delay to ensure token is fully processed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Verify the token was saved correctly
+        const savedToken = await AsyncStorage.getItem(USER_TOKEN_KEY);
+        if (!savedToken) {
+          console.error('Login appeared successful but no token was saved');
+          return false;
+        }
+        
+        console.log('Auto-login completed successfully and token verified');
         return true;
+      } finally {
+        // Clear auto-login flag regardless of success or failure
+        await AsyncStorage.removeItem('autoLoginInProgress');
       }
-
-      console.log('No valid token found, performing full login with saved credentials');
-      // Otherwise do a fresh login with the saved credentials
-      await dispatch(login(username, password));
-      return true;
     } catch (error) {
       console.error('Error during automatic login:', error);
+      await AsyncStorage.removeItem('autoLoginInProgress');
       return false;
     }
   }
