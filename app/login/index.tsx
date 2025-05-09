@@ -215,6 +215,37 @@ export default function Login() {
     try {
       console.log('LOGIN COMPONENT: Checking for auto-login...');
       
+      // First check if user is already authenticated
+      const isCurrentlyAuthenticated = store.getState().auth.isAuthenticated;
+      const existingToken = await AsyncStorage.getItem('userToken');
+      
+      if (isCurrentlyAuthenticated && existingToken) {
+        console.log('LOGIN COMPONENT: User is already authenticated with a token');
+        
+        // Validate the token to make sure it's still valid
+        try {
+          const response = await fetch('http://192.168.0.88:5276/api/Kullanici/GetUserInfo', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${existingToken}`
+            }
+          });
+          
+          if (response.ok) {
+            console.log('LOGIN COMPONENT: Existing token is valid, redirecting to portal');
+            // Navigate directly to portal
+            PinService.navigateToPortal(router);
+            return true;
+          } else {
+            console.error('LOGIN COMPONENT: Existing token is invalid, will try re-login');
+            // Token is invalid, continue with normal auto-login flow
+          }
+        } catch (error) {
+          console.error('LOGIN COMPONENT: Error validating existing token:', error);
+          // Continue with normal auto-login flow
+        }
+      }
+      
       // Check for Remember Me flag and stored credentials
       const isPinEnabled = await PinService.isPinLoginEnabled();
       const hasStoredCredentials = await PinService.hasStoredCredentials();
@@ -249,7 +280,7 @@ export default function Login() {
           setTimeout(() => {
             PinService.navigateToPortal(router);
           }, 1500);
-          return;
+          return true;
         } else {
           console.log('LOGIN COMPONENT: Auto-login failed, fallback to manual login');
           setIsAutoLoggingIn(false);
@@ -257,9 +288,12 @@ export default function Login() {
       } else {
         console.log('LOGIN COMPONENT: No Remember Me or stored credentials for auto-login');
       }
+      
+      return false;
     } catch (error) {
       console.error('LOGIN COMPONENT: Error checking auto-login:', error);
       setIsAutoLoggingIn(false);
+      return false;
     }
   };
 
