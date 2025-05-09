@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../store";
 import { setUserData } from "../store/slices/userSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import apiService from "../utils/apiService";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -24,6 +25,10 @@ export default function Portal() {
   const dispatch = useDispatch();
   const userData = useSelector((state: RootState) => state.user.userData);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [announcements, setAnnouncements] = useState<Array<any>>([]);
+  const [currentAnnouncementIndex, setCurrentAnnouncementIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -41,6 +46,52 @@ export default function Portal() {
       loadUserData();
     }
   }, [userData, dispatch]);
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setLoading(true);
+        const response = await apiService.getDuyurular();
+        console.log("Fetched announcements:", response);
+        // Extract the data array from the response
+        const announcementData = response && typeof response === 'object' && 'data' in response 
+          ? response.data 
+          : [];
+        setAnnouncements(Array.isArray(announcementData) ? announcementData : []);
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
+
+  // Effect to rotate through announcements
+  useEffect(() => {
+    // Only start rotation if we have announcements
+    if (announcements.length > 1 && !loading) {
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      
+      // Start a new timer to rotate announcements
+      timerRef.current = setInterval(() => {
+        setCurrentAnnouncementIndex(prevIndex => 
+          (prevIndex + 1) % announcements.length
+        );
+      }, 10000); // 10 seconds rotation
+    }
+
+    // Cleanup the timer when component unmounts
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [announcements, loading]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -93,10 +144,49 @@ export default function Portal() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.cardTitle}>Duyurular</Text>
-            <Text style={styles.alertText}>
-              20/06/2024 tarihinden itibaren 2.5 saat içinde QR gösteremezsiniz
-            </Text>
+            <View style={styles.announcementHeader}>
+              <Text style={styles.cardTitle}>Duyurular</Text>
+              {announcements.length > 0 && (
+                <Text style={styles.announcementCounter}>
+                  {currentAnnouncementIndex + 1}/{announcements.length}
+                </Text>
+              )}
+            </View>
+            
+            {loading ? (
+              <Text style={styles.alertText}>Duyurular yükleniyor...</Text>
+            ) : announcements.length > 0 ? (
+              <View style={styles.announcementContainer}>
+                {announcements.length > 0 && (
+                  <View style={styles.announcementItem}>
+                    <View style={styles.announcementTitleRow}>
+                      <Text style={styles.announcementTitle}>
+                        {announcements[currentAnnouncementIndex].Baslik}
+                      </Text>
+                      {announcements[currentAnnouncementIndex].Onem > 0 && (
+                        <View style={[
+                          styles.importanceIndicator, 
+                          announcements[currentAnnouncementIndex].Onem === 2 
+                            ? styles.highImportance 
+                            : styles.mediumImportance
+                        ]}>
+                          <Text style={styles.importanceText}>
+                            {announcements[currentAnnouncementIndex].Onem === 2 ? 'Önemli' : 'Bilgi'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.alertText}>
+                      {announcements[currentAnnouncementIndex].Aciklama}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.alertText}>
+                Aktif duyuru bulunmamaktadır.
+              </Text>
+            )}
           </LinearGradient>
         </View>
         <View style={styles.modalContainer}>
@@ -322,5 +412,51 @@ const styles = StyleSheet.create({
     color: "#000",
     textAlign: "center",
     marginBottom: screenWidth * 0.025,
+  },
+  announcementContainer: {
+    minHeight: 120,
+  },
+  announcementHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  announcementCounter: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: 'bold',
+  },
+  announcementItem: {
+    paddingVertical: 8,
+  },
+  announcementTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  announcementTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
+  },
+  importanceIndicator: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 4,
+  },
+  mediumImportance: {
+    backgroundColor: '#FFA500',
+  },
+  highImportance: {
+    backgroundColor: '#FF4500',
+  },
+  importanceText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
